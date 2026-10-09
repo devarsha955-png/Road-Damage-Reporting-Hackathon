@@ -29,7 +29,11 @@ import {
 import { Link, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import NotFound from '@/pages/not-found';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: false, refetchOnWindowFocus: false },
+  },
+});
 const stages: RoadReportStatus[] = ['received', 'reviewing', 'scheduled', 'resolved'];
 const statusNames: Record<RoadReportStatus, string> = {
   received: 'Received', reviewing: 'Under review', scheduled: 'Work scheduled', resolved: 'Resolved',
@@ -102,10 +106,10 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
 }
 
-function MetricTile({ label, value, icon: Icon, detail, tone }: { label: string; value?: number; icon: typeof Signal; detail: string; tone?: string }) {
+function MetricTile({ label, value, icon: Icon, detail, tone, loading }: { label: string; value?: number; icon: typeof Signal; detail: string; tone?: string; loading?: boolean }) {
   return <div className={`metric-tile ${tone || ''}`} data-testid={`metric-${label.toLowerCase().replaceAll(' ', '-')}`}>
     <div className="metric-top"><span>{label}</span><Icon size={17} strokeWidth={1.7} /></div>
-    {value === undefined ? <div className="skeleton metric-skeleton" /> : <strong className="metric-number">{value.toLocaleString()}</strong>}
+    {loading ? <div className="skeleton metric-skeleton" /> : <strong className="metric-number">{value === undefined ? '—' : value.toLocaleString()}</strong>}
     <span className="metric-detail">{detail}</span>
   </div>;
 }
@@ -174,12 +178,12 @@ function Dashboard() {
       </div>
     </section>
     <section className="metrics-strip animate-rise delay-1" aria-label="Report statistics" data-testid="report-statistics">
-      <MetricTile label="Reports made" value={stat?.total} icon={Signal} detail="Visible across the city" />
-      <MetricTile label="Being reviewed" value={stat?.reviewing} icon={Clock3} detail="On a city team's radar" />
-      <MetricTile label="Work scheduled" value={stat?.scheduled} icon={ArrowUpRight} detail="Repairs in the pipeline" />
-      <MetricTile label="Fixed streets" value={stat?.resolved} icon={BadgeCheck} detail={stat ? `${stat.updatedToday} updated today` : 'Updated today'} tone="metric-highlight" />
+      <MetricTile label="Reports made" value={stat?.total} icon={Signal} detail="Visible across the city" loading={stats.isLoading} />
+      <MetricTile label="Being reviewed" value={stat?.reviewing} icon={Clock3} detail="On a city team's radar" loading={stats.isLoading} />
+      <MetricTile label="Work scheduled" value={stat?.scheduled} icon={ArrowUpRight} detail="Repairs in the pipeline" loading={stats.isLoading} />
+      <MetricTile label="Fixed streets" value={stat?.resolved} icon={BadgeCheck} detail={stat ? `${stat.updatedToday} updated today` : 'Updated today'} tone="metric-highlight" loading={stats.isLoading} />
     </section>
-    {stats.isError && <div className="stats-error" role="alert" data-testid="error-statistics"><CircleAlert size={14} /><span>Street totals are temporarily unavailable.</span><button onClick={() => stats.refetch()} data-testid="button-retry-statistics">Retry</button></div>}
+    {stats.isError && <div className="stats-error" role="alert" data-testid="error-statistics"><CircleAlert size={14} /><span>MongoDB isn’t connected. Add the MONGO_URI secret to load live totals.</span><button onClick={() => stats.refetch()} data-testid="button-retry-statistics">Retry</button></div>}
     <section className="reports-section animate-rise delay-2" id="recent-reports">
       <div className="section-heading">
         <div><div className="section-kicker">THE SHARED STREET LOG</div><h2>Reports from around you<span>.</span></h2><p>Every report is a small step toward a street that works for everyone.</p></div>
@@ -191,7 +195,7 @@ function Dashboard() {
       </div>
       <div className="report-list" data-testid="report-list">
         <div className="list-head"><span>ISSUE / LOCATION</span><span>STATUS</span><span>REPORTED</span><span /></div>
-        {list.isLoading ? <ReportLoadingList /> : list.isError ? <ErrorState message="Reports could not load right now." onRetry={() => list.refetch()} /> : reports.length === 0
+        {list.isLoading ? <ReportLoadingList /> : list.isError ? <ErrorState message="MongoDB isn’t connected. Add the MONGO_URI secret to load the street log." onRetry={() => list.refetch()} /> : reports.length === 0
           ? <EmptyReports searching={Boolean(search || status)} />
           : reports.map((report) => <ReportRow key={report.id} report={report} />)}
       </div>

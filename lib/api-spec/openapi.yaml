@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: reports
+    description: Road damage reports
+  - name: uploads
+    description: Report photos
 paths:
   /healthz:
     get:
@@ -24,6 +28,126 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /reports:
+    get:
+      operationId: listReports
+      tags: [reports]
+      summary: List and filter road damage reports
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [received, reviewing, scheduled, resolved]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoadReport"
+    post:
+      operationId: createReport
+      tags: [reports]
+      summary: Submit a road damage report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoadReportInput"
+      responses:
+        "201":
+          description: Submitted report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoadReport"
+  /reports/{id}:
+    get:
+      operationId: getReport
+      tags: [reports]
+      summary: Get one report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Road damage report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoadReport"
+        "404":
+          description: Report not found
+  /reports/statistics:
+    get:
+      operationId: getReportStatistics
+      tags: [reports]
+      summary: Get dashboard report totals and status breakdown
+      responses:
+        "200":
+          description: Current report totals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportStatistics"
+  /uploads:
+    post:
+      operationId: uploadReportPhoto
+      tags: [uploads]
+      summary: Store a photo for a road damage report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportPhotoInput"
+      responses:
+        "201":
+          description: Stored photo reference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportPhoto"
+  /uploads/{id}:
+    get:
+      operationId: getReportPhoto
+      tags: [uploads]
+      summary: Get a stored report photo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Photo bytes
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Photo not found
 components:
   schemas:
     HealthStatus:
@@ -33,4 +157,67 @@ components:
           type: string
       required:
         - status
+    RoadReport:
+      type: object
+      required:
+        - id
+        - trackingCode
+        - title
+        - description
+        - address
+        - latitude
+        - longitude
+        - severity
+        - status
+        - photoId
+        - createdAt
+      properties:
+        id: { type: string }
+        trackingCode: { type: string }
+        title: { type: string }
+        description: { type: string }
+        address: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        severity: { type: string, enum: [low, medium, high] }
+        status: { type: string, enum: [received, reviewing, scheduled, resolved] }
+        photoId: { type: ["string", "null"] }
+        photoUrl: { type: ["string", "null"] }
+        reporterName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    RoadReportInput:
+      type: object
+      required: [title, description, address, latitude, longitude, severity]
+      properties:
+        title: { type: string, minLength: 4, maxLength: 100 }
+        description: { type: string, minLength: 10, maxLength: 1200 }
+        address: { type: string, minLength: 4, maxLength: 240 }
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        severity: { type: string, enum: [low, medium, high] }
+        photoId: { type: ["string", "null"] }
+        reporterName: { type: ["string", "null"], maxLength: 80 }
+    ReportStatistics:
+      type: object
+      required: [total, received, reviewing, scheduled, resolved, updatedToday]
+      properties:
+        total: { type: integer }
+        received: { type: integer }
+        reviewing: { type: integer }
+        scheduled: { type: integer }
+        resolved: { type: integer }
+        updatedToday: { type: integer }
+    ReportPhotoInput:
+      type: object
+      required: [fileName, contentType, data]
+      properties:
+        fileName: { type: string, minLength: 1, maxLength: 160 }
+        contentType: { type: string, enum: [image/jpeg, image/png, image/webp] }
+        data: { type: string, description: Base64-encoded image bytes, maxLength: 4194304 }
+    ReportPhoto:
+      type: object
+      required: [id, url]
+      properties:
+        id: { type: string }
+        url: { type: string }
 

@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Roadwatch"
+description = "A MERN road-damage reporting app that helps residents submit pothole and damaged-road reports with location and photos, and follow progress as city teams resolve them."
+version = "1.0.0"
+id = "artifacts/roadwatch"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22704
+
+[services.development]
+run = "pnpm --filter @workspace/roadwatch run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/roadwatch", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/roadwatch/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22704"
+BASE_PATH = "/"
